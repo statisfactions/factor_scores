@@ -5,22 +5,6 @@ list_w_names = function(...) {
   
 }
 
-rand_restore <- function() {
-  ## From http://www.cookbook-r.com/Numbers/Saving_the_state_of_the_random_number_generator/
-  if (exists(".Random.seed", .GlobalEnv))
-    oldseed <- .GlobalEnv$.Random.seed
-  else
-    oldseed <- NULL
-  
-  print(runif(3))
-  
-  if (!is.null(oldseed)) 
-    .GlobalEnv$.Random.seed <- oldseed
-  else
-    rm(".Random.seed", envir = .GlobalEnv)
-}
-
-
 mes <- function(fmodel,effect, marginals, numberofcases=1000, sd_latent = 1, sd_error = 1) {   # define a general function in terms of a factor model and an effects matrix
   ## Function altered from http://personality-project.org/r/r.datageneration.html
   numberofvariables <- dim(fmodel)[1]        #problem size determined by input to the function
@@ -64,18 +48,19 @@ genify = function(variables, ..., reproduce = FALSE) {
   ## "seed" variable provided in ...
   if(reproduce) {
     if(exists(eval_environment$seed)) {
-      .Random.seed <- starting_seed <- eval_environment$seed
+      starting_seed <- eval_environment$seed
+      assign(".Random.seed", starting_seed, envir = .GlobalEnv)
     } else
       stop("Seed should be provided in the `seed` column for reproduction.")
   } else {
     ## Save random seed if not reproducing
     
     ## Create random seed if it does not already exist.
-    if (!exists(".Random.seed"))
+    if (!exists(".Random.seed", envir = .GlobalEnv))
       runif(1)
     
     ## save the random seed 
-    starting_seed <- .Random.seed 
+    starting_seed <- .GlobalEnv$.Random.seed
   }
   
   df = purrr::map_dfc(variables, function(y) {
@@ -131,6 +116,7 @@ genify = function(variables, ..., reproduce = FALSE) {
 reproduce <-
   function(x, colname = "reproduce", fn = genify, globals = TRUE, packages = NULL) {
     ## Based on simpr::produce() to reproduce, given a seed.
+    
     
     ## Generate all replications
     x[[colname]] = x %>% select(-sim_cell) %>% 
