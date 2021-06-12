@@ -227,7 +227,7 @@ fit_and_tidy = function(variables, ...) {
   
   catchToList({
     
-    capture.output(nfact <- psych::fa.parallel(gen, cor = "poly", plot = FALSE, sim = FALSE)$nfact, file = "NUL")
+    capture.output(nfact <- psych::fa.parallel(gen, cor = "poly", plot = FALSE, sim = FALSE, correct = 0.1)$nfact, file = "NUL")
     
     ## Don't bother fitting model if wrong number of factors
     if(nfact != 3) {
