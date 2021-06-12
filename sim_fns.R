@@ -47,7 +47,7 @@ genify = function(variables, ..., reproduce = FALSE) {
   ## If reproducing, random seed should be in the
   ## "seed" variable provided in ...
   if(reproduce) {
-    if(exists(eval_environment$seed)) {
+    if(exists("seed", envir = eval_environment)) {
       starting_seed <- eval_environment$seed
       assign(".Random.seed", starting_seed, envir = .GlobalEnv)
     } else
@@ -120,7 +120,7 @@ reproduce <-
     
     ## Generate all replications
     x[[colname]] = x %>% select(-sim_cell) %>% 
-      furrr::future_pmap(., fn, variables = attr(x, "variables_spec"), 
+      furrr::future_pmap(., fn, variables = attr(x, "variables_spec"), reproduce = TRUE,
                          .options = furrr::future_options(globals = globals,
                                                           packages = packages),
                          .progress = TRUE)
