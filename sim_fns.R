@@ -5,6 +5,25 @@ list_w_names = function(...) {
   
 }
 
+seed_factory = function(f) {
+  ## Function factory: Return a function that
+  ## captures .Random.seed and returns a list with
+  ## seed and original object
+  function(...) {
+  ## Create random seed if it does not already exist.
+  if (!exists(".Random.seed", envir = .GlobalEnv))
+    runif(1)
+  
+  ## save the random seed 
+  starting_seed <- .GlobalEnv$.Random.seed
+  res = f(...)
+  list(sim_cell = res, seed = starting_seed)
+  }
+}
+  
+  
+
+
 mes <- function(fmodel,effect, marginals, numberofcases=1000, sd_latent = 1, sd_error = 1) {   # define a general function in terms of a factor model and an effects matrix
   ## Function altered from http://personality-project.org/r/r.datageneration.html
   numberofvariables <- dim(fmodel)[1]        #problem size determined by input to the function
@@ -37,8 +56,6 @@ mes <- function(fmodel,effect, marginals, numberofcases=1000, sd_latent = 1, sd_
   return(Y)
 }       #end of function mes
 
-
-
 genify = function(variables, ..., reproduce = FALSE) {
   # Generate the simulation data based on the simpr specification
   
@@ -52,16 +69,7 @@ genify = function(variables, ..., reproduce = FALSE) {
       assign(".Random.seed", starting_seed, envir = .GlobalEnv)
     } else
       stop("Seed should be provided in the `seed` column for reproduction.")
-  } else {
-    ## Save random seed if not reproducing
-    
-    ## Create random seed if it does not already exist.
-    if (!exists(".Random.seed", envir = .GlobalEnv))
-      runif(1)
-    
-    ## save the random seed 
-    starting_seed <- .GlobalEnv$.Random.seed
-  }
+  } 
   
   df = purrr::map_dfc(variables, function(y) {
     
@@ -106,8 +114,6 @@ genify = function(variables, ..., reproduce = FALSE) {
     
     gen_df
   })
-  ## save seed as attribute
-  attr(df, "seed") = starting_seed
   
   df
   
@@ -165,12 +171,10 @@ future_produce2 <-
     
     ## Generate all replications
     sim_results$sim_cell = specs %>%
-      furrr::future_pmap(., fn, variables = x$variables, 
+      furrr::future_pmap(., seed_factory(fn), variables = x$variables, 
                          .options = furrr::future_options(globals = globals,
                                                           packages = packages),
                          .progress = TRUE)
-    
-    sim_results$seed = purrr::map(sim_results$sim_cell, ~ attr(., "seed"))
     
     ## Add some attributes to the tibble to track meta and variables
     attr(sim_results, "meta") = names(x$meta$indices)
@@ -180,7 +184,7 @@ future_produce2 <-
     ## Add "simpr_gen" class
     class(sim_results) = c("simpr_gen", class(sim_results))
     
-    sim_results
+    sim_results %>% unnest_wider(col = sim_cell)
   }
 
 # Power simulation ------
@@ -231,7 +235,6 @@ fit_and_tidy = function(variables, ...) {
     
     ## Don't bother fitting model if wrong number of factors
     if(nfact != 3) {
-      attr(nfact, "seed") = attr(gen, "seed")
       return(seed)
     }
     
@@ -240,8 +243,6 @@ fit_and_tidy = function(variables, ...) {
   
   fa_out <- tibble::as_tibble(fa_fit@loading, rownames = "variable") %>% 
     dplyr::bind_rows(tibble::as_tibble(fa_fit@phi, rownames = "variable"))
-  
-  attr(fa_out, "seed") = attr(gen, "seed")
   
   return(fa_out)
   })
