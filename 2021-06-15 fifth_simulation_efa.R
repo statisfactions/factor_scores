@@ -4,6 +4,7 @@ library(readr)
 library(simpr)
 library(psych)
 library(furrr)
+library(future)
 library(tictoc)
 library(testthat)
 library(glue)
@@ -15,15 +16,17 @@ source("sim_fns.R")
 nfactor_data = list.files("nfactor_results", pattern = "RDS$", full.names = TRUE) %>% 
   set_names(.)
 
-nfactor_results = map_dfr(nfactor_data, readRDS) %>% rename(n_factors = sim_cell) 
+nfactor_results = map_dfr(nfactor_data, readRDS, .id = "filename") %>% rename(n_factors = sim_cell) 
 
 #nfactor_results
 
 ## Fit efas -----
+plan(multicore)
 tic()
 gen_efa = nfactor_results %>% reproduce(colname = "sim_cell", fn = fit_and_tidy_efa_only, 
                                       globals = TRUE, packages = "GPArotation")
 toc()
+saveRDS(gen_efa, file = "efas_1.RDS")
 
 
 # tic()
