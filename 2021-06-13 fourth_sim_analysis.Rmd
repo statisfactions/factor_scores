@@ -1,0 +1,235 @@
+---
+title: "Initial simulation explorations"
+author: "Ethan C. Brown"
+date: "6/8/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(knitr)
+library(glue)
+library(psych)
+library(magrittr)
+load("2021-06-14_fourth_simulation_results.Rdata")
+
+options(knitr.kable.NA = "")
+
+read_mat_b = function(x) {
+  out = read.delim(x, sep = "\t", header = FALSE)
+  names(out) = paste0("pop_factor", 1:ncol(out))
+  
+  ## if square, then it's a correlation matrix and label that too
+  if(ncol(out) == nrow(out))
+    rownames(out) = names(out)
+  
+  return(out)
+}
+  
+
+loadings = list(simple = read_mat_b("loadings.txt"),
+                complex = read_mat_b("loadings_2.txt"))
+
+loadings_df = bind_rows(loadings, .id = "loading")
+
+cors = list(minimal = read_mat_b("cors.txt"),
+            moderate = read_mat_b("cors_2.txt"))
+
+factor_cutoff = 0.2
+num_items = map_int(loadings, nrow) %>% unique
+```
+
+## Methods
+### Population
+
+Population loadings:
+```{r loadings}
+loadings
+```
+Factor correlations:
+
+```{r cors}
+cors
+```
+Possible factor score variability, as measured by item-level reliability: 
+
+```{r rs}
+gen$r %>% unique %>% sort
+```
+
+Ratio of sample size to # items: 
+
+```{r n_multiplier}
+(unique_n_multiplier = gen$n_multiplier %>% unique %>% sort)
+```
+
+Possible numbers of items:
+```{r num_items}
+num_items
+```
+
+Possible sample sizes
+```{r sample_sizes}
+num_items * unique_n_multiplier
+```
+
+Error SD: 1
+
+Number of item categories: 4
+
+Thresholds: -2.26, 0, 2.26
+
+(Thresholds chosen so that all conditions are "unimodal" such that center two categories are at least 10% more than tail categories in all item-level reliability conditions.)
+
+### Simulation parameters
+Number of simulations per condition:
+```{r}
+max(gen$rep)
+```
+
+
+### Estimation
+Number of factors determined by parallel analysis using polychoric correlation matrix.
+
+Estimator is WLSMV, geomin oblique rotation.
+
+Estimated factors matched to population factors by max congruence coefficient.
+
+Items determined to load on factor if loading > 0.2.
+
+## Results
+
+Classes of results: `list` is when an error or warning occurred; `numeric` is when number of factors != population (here, 3), and `tbl_df` is when factors were extracted.
+```{r gen_class}
+gen_class = gen %>%
+  rowwise() %>% 
+  mutate(class = paste(class(sim_cell)[1], collapse = " "),
+         nfactor = case_when(
+           class == "list" ~ NA_real_,
+           ## can't figure out how to extract this in this command
+           class == "numeric" ~ NaN,
+           class == "tbl_df" ~ 3))
+
+## Getting other factor numbers
+gen_class$nfactor[gen_class$class == "numeric"] = unlist(gen_class$sim_cell[gen_class$class == "numeric"])
+
+gen_class %>% 
+  ungroup %>% 
+  count(class) %>% 
+  mutate(proportion = n/sum(n))
+
+```
+### Number of factors
+Proportion of each number of factors extracted:
+```{r nfactor}
+nfactor = gen_class %>%
+  filter(!is.na(nfactor)) %>% 
+  count(r, n_multiplier, loading_index, cor_index, nfactor) %>% 
+  group_by(r, n_multiplier, loading_index, cor_index) %>% 
+  mutate(proportion = n/sum(n)) %>% 
+  select(-n) %>% 
+  pivot_wider(names_from = nfactor,
+              values_from = proportion) %>% 
+  arrange(loading_index, cor_index, n_multiplier, r)
+
+nfactor %>% 
+  kable
+
+```
+
+### Errors
+
+Let's explore the lists in more detail.  It looks like ALL of them of them are errors.  3 are caused by empty categories, 588 are the mysterious "missing value where TRUE/FALSE needed", and 18 have to do with the `factanal` not being able to provide starting values.  Probably all of these can be eventually addressed.
+
+```{r gen_list}
+gen_list = gen_class %>% 
+  filter(class == "list") %>% 
+  mutate(value = sim_cell$value,
+         error = sim_cell$error,
+         error_category = case_when(
+           str_detect(error, "some categories of variable") ~ "empty variable category",
+           str_detect(error, "missing value where") ~ "missing value issue",
+           str_detect(error, "starting values from the factanal") ~ "starting value"),
+         warning = list(sim_cell$warning))
+
+
+table(gen_list$error, useNA = "ifany")
+
+```
+```{r error_by_condition}
+gen_error = gen_class %>% 
+  select(-sim_cell, -nfactor) %>% 
+  left_join(gen_list, by = c("rep", "r", "n_multiplier", "loading_index", "cor_index", "class"))
+
+error_by_condition = gen_error %>% 
+  mutate(error_category = replace_na(error_category, "no error")) %>% 
+  count(r, n_multiplier, loading_index, cor_index, error_category) %>% 
+  group_by(r, n_multiplier, loading_index, cor_index) %>% 
+  mutate(proportion = n/sum(n)) %>% 
+  select(-n) %>% 
+  pivot_wider(names_from = error_category,
+              values_from = proportion) %>% 
+  arrange(loading_index, cor_index, n_multiplier, r) 
+
+error_by_condition %>% 
+  kable
+```
+### Congruence coefficients
+
+```{r congruence}
+gen_unnest = gen_class %>% 
+  filter(class == "tbl_df") %>% 
+  unnest(cols = "sim_cell")
+
+gen_loadings = gen_unnest %>% 
+  filter(!str_starts(variable, "factor"))
+
+gen_congruence = gen_loadings %>% 
+  select(-variable, -class, -nfactor) %>% 
+  nest_by(rep, r, n_multiplier, loading_index, cor_index) %>% 
+  ## does taking absolute value make sense?
+  mutate(congruence = list(factor.congruence(abs(as.matrix(data)),
+                                             abs(as.matrix(loadings[[loading_index]]))) %>% 
+                             as_tibble(rownames = "samp_factor"))) %>% 
+  select(-data) %>% 
+  unnest(cols = congruence)
+  
+max_congruence = gen_congruence %>% 
+  pivot_longer(starts_with("pop"),
+               names_to = "pop_factor",
+               values_to = "congruence") %>% 
+  group_by(rep, r, n_multiplier, loading_index, cor_index, pop_factor) %>% 
+  summarize(max_congruence_factor = samp_factor[which.max(congruence)],
+    max_congruence = max(congruence), .groups = "drop")
+
+
+avg_congruence = max_congruence %>% 
+  group_by(r, n_multiplier, loading_index, cor_index, pop_factor) %>% 
+  summarize(mean_congruence = mean(max_congruence), .groups = "drop") %>% 
+  pivot_wider(names_from = pop_factor, values_from = mean_congruence) %>% 
+  arrange(loading_index, cor_index, n_multiplier, r)
+  
+avg_congruence %>% kable
+  
+  
+```
+
+
+Write out results in one table.
+```{r eval = FALSE}
+one_table = error_by_condition %>% 
+  left_join(nfactor, by = c("r", "n_multiplier", 
+                            "loading_index", "cor_index")) %>% 
+  left_join(avg_congruence, by = c("r", "n_multiplier", 
+                                   "loading_index", "cor_index")) %>% 
+  arrange(loading_index, cor_index, n_multiplier, r)
+  
+
+openxlsx::write.xlsx(one_table, file = "2021-06-08-02 third_sim_results_table.xlsx",
+                     table = TRUE,
+                     colWidths = "auto")
+                     
+```
+

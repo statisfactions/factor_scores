@@ -1,0 +1,158 @@
+---
+title: "Initial simulation explorations"
+author: "Ethan C. Brown"
+date: "6/8/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(knitr)
+library(glue)
+library(psych)
+load("2021-06-07 inital_sim.Rdata")
+
+gen_unnest = gen %>% 
+  unnest(cols = "sim_cell")
+
+samp_loadings = read.delim("loadings.txt", sep = "\t", header = FALSE) %>% 
+  set_names(paste0("pop_factor", 1:3))
+samp_cors = read.delim("cors.txt", sep = "\t", header = FALSE) %>% 
+  set_names(paste0("factor", 1:3))
+rownames(samp_cors) = paste0("factor", 1:3)
+
+factor_cutoff = 0.2
+num_items = 12
+```
+
+## Methods
+### Population
+
+Population loadings:
+```{r loadings}
+samp_loadings %>% kable
+```
+Factor correlations:
+
+```{r samp_cors}
+samp_cors %>% kable
+```
+Possible factor score variability, as measured by item-level reliability: 0.7, 0.8, or 0.9
+
+Ratio of sample size to # items: 25 or 50
+
+Error SD: 1
+
+Number of item categories: 4
+
+Thresholds: -2.26, 0, 2.26
+
+(Thresholds chosen so that all conditions are "unimodal" such that center two categories are at least 10% more than tail categories in all item-level reliability conditions.)
+
+### Simulation parameters
+Number of simulations per condition: 100
+
+### Estimation
+Number of factors determined by parallel analysis using polychoric correlation matrix.
+
+Estimator is WLSMV, geomin oblique rotation.
+
+Estimated factors matched to population factors by max congruence coefficient.
+
+Items determined to load on factor if loading > 0.2.
+
+## Results
+### Convergence
+Proportion of results that converged
+
+### Number of factors
+
+Number of factors detected was always correct.
+
+```{r nfactor}
+rep_nfactor = gen_unnest %>% 
+  group_by(rep, r, n_multiplier) %>% 
+  filter(str_starts(variable, "factor")) %>% 
+  summarize(nfactor = n_distinct(variable), .groups = "drop")
+
+rep_nfactor %>% group_by(r, n_multiplier) %>% 
+  summarize(prop_correct = mean(nfactor == 3)) %>% 
+  kable
+```
+
+### Did items always load on the same factors as the population?
+
+Average proportion of pattern of loadings.
+
+```{r gen_sort_factors}
+factor_pop_sort = samp_loadings %>% as_tibble %>%
+  mutate(variable = sprintf("x_%02.0f", 1:12)) %>% 
+  pivot_longer(-variable, names_to = "pop_factor", values_to = "pop_loading") %>% 
+  mutate(pop_loads = abs(pop_loading) > factor_cutoff) %>% 
+  select(-pop_loading)
+
+samp_pop_match = gen_unnest %>% 
+  filter(!str_starts(variable, "factor")) %>% 
+  pivot_longer(starts_with("factor"), names_to = "samp_factor", values_to = "samp_loading") %>% 
+  mutate(samp_loads = abs(samp_loading) > factor_cutoff) %>% 
+  select(-samp_loading) %>% 
+  left_join(factor_pop_sort, by = "variable") %>% 
+  mutate(samp_pop_match = samp_loads == pop_loads) 
+
+match_counts = samp_pop_match %>% 
+  group_by(rep, r, n_multiplier, samp_factor, pop_factor, samp_pop_match) %>% 
+  summarize(match_count = n(), .groups = "drop")
+  
+  
+max_match = match_counts %>% 
+  group_by(rep, r, n_multiplier, samp_factor) %>% 
+  filter(match_count == max(match_count) & samp_pop_match) %>% 
+  mutate(match_prop = match_count / num_items)
+
+match_summary = max_match %>% 
+  group_by(r, n_multiplier, pop_factor) %>% 
+  summarize(mean_prop = mean(match_prop), .groups = "drop") %>% 
+  pivot_wider(names_from = pop_factor, values_from = mean_prop)
+```
+### Congruence coefficients
+
+```{r congruence}
+gen_loadings = gen_unnest %>% 
+  filter(!str_starts(variable, "factor"))
+
+
+samp_loadings
+
+gen_congruence = gen_loadings %>% 
+  select(-variable) %>% 
+  nest_by(rep, r, n_multiplier) %>% 
+  ## does taking absolute value make sense?
+  mutate(congruence = list(factor.congruence(abs(as.matrix(data)),
+                                             abs(as.matrix(samp_loadings))) %>% 
+                             as_tibble(rownames = "samp_factor"))) %>% 
+  select(-data) %>% 
+  unnest(cols = congruence)
+  
+max_congruence = gen_congruence %>% 
+  pivot_longer(starts_with("pop"),
+               names_to = "pop_factor",
+               values_to = "congruence") %>% 
+  group_by(rep, r, n_multiplier, pop_factor) %>% 
+  summarize(max_congruence_factor = samp_factor[which.max(congruence)],
+    max_congruence = max(congruence), .groups = "drop")
+
+
+avg_congruence = max_congruence %>% 
+  group_by(r, n_multiplier, pop_factor) %>% 
+  summarize(mean_congruence = mean(max_congruence), .groups = "drop") %>% 
+  pivot_wider(names_from = pop_factor, values_from = mean_congruence)
+  
+avg_congruence %>% kable
+  
+  
+```
+
+
+

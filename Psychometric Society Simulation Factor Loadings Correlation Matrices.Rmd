@@ -1,0 +1,207 @@
+---
+title: "Psychometric Society Paper"
+output: html_notebook
+---
+
+
+# Factor Structure
+
+## Two Factors
+
+```{r}
+data.1 <- c(0.7,0.7,0.7,0.7,0.7,0,0,0,0,0,0,0,0,0,0,0.7,0.7,0.7,0.7,0.7)
+
+(matrix.1 <- matrix(data.1, ncol = 2, byrow = FALSE))
+
+```
+
+```{r}
+data.2 <- c(0.6,0.6,0.6,0.6,0.6,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.6,0.6,0.6,0.6,0.6)
+
+(matrix.2 <- matrix(data.2, ncol = 2, byrow = FALSE))
+
+```
+
+## Three Factors
+
+```{r}
+data.3 <- c(0.7,0.7,0.7,0.7,0.7,0,0,0,0,0,0,0,0,0,0,
+            0,0,0,0,0,0.7,0.7,0.7,0.7,0.7,0,0,0,0,0,
+            0,0,0,0,0,0,0,0,0,0,0.7,0.7,0.7,0.7,0.7)
+
+(matrix.3 <- matrix(data.3, ncol = 3, byrow = FALSE))
+
+```
+
+
+```{r}
+data.4 <- c(0.6,0.6,0.6,0.6,0.6,0.3,0.3,0.3,0.3,0.3,0,0,0,0,0,
+            0,0,0,0,0,0.6,0.6,0.6,0.6,0.6,0.3,0.3,0.3,0.3,0.3,
+            0.3,0.3,0.3,0.3,0.3,0,0,0,0,0,0.6,0.6,0.6,0.6,0.6)
+
+(matrix.4 <- matrix(data.4, ncol = 3, byrow = FALSE))
+
+```
+
+## Four Factors
+
+```{r}
+data.5 <- c(0.7,0.7,0.7,0.7,0.7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+            0,0,0,0,0,0.7,0.7,0.7,0.7,0.7,0,0,0,0,0,0,0,0,0,0,
+            0,0,0,0,0,0,0,0,0,0,0.7,0.7,0.7,0.7,0.7,0,0,0,0,0,
+            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0.7,0.7,0.7,0.7,0.7)
+
+(matrix.5 <- matrix(data.5, ncol = 4, byrow = FALSE))
+
+```
+
+
+```{r}
+data.6 <- c(0.6,0.6,0.6,0.6,0.6,0.3,0.3,0.3,0.3,0.3,0,0,0,0,0,0,0,0,0,0,
+            0,0,0,0,0,0.6,0.6,0.6,0.6,0.6,0.3,0.3,0.3,0.3,0.3,0,0,0,0,0,
+            0,0,0,0,0,0,0,0,0,0,0.6,0.6,0.6,0.6,0.6,0.3,0.3,0.3,0.3,0.3,
+            0.3,0.3,0.3,0.3,0.3,0,0,0,0,0,0,0,0,0,0,0.6,0.6,0.6,0.6,0.6)
+
+(matrix.6 <- matrix(data.6, ncol = 4, byrow = FALSE))
+
+```
+# Bring together loadings conditions
+```{r}
+loading_conditions = list(simple_1 = matrix(rep(0.7, 5)),
+                          complex_1 = matrix(rep(0.6, 5)),
+  simple_2 = matrix.1,
+                          complex_2 = matrix.2,
+                          simple_3 = matrix.3,
+                          complex_3 = matrix.4,
+                          simple_4 = matrix.5,
+                          complex_4 = matrix.6)
+```
+
+
+
+# Factor Correlations
+
+```{r include = FALSE}
+library(Matrix)
+```
+
+
+## Test
+
+```{r}
+## https://www.rdocumentation.org/packages/Matrix/versions/1.3-4/topics/nearPD
+A <- matrix(1, 3,3); A[1,3] <- A[3,1] <- 0
+ n.A <- nearPD(A, corr=TRUE, do2eigen=FALSE)
+ A
+ n.A
+```
+
+## Uncorrelated
+
+```{r}
+data.a <- c(1,0,0,1)
+
+(matrix.a <- matrix(data.a, nrow = 2, ncol = 2, byrow = TRUE))
+
+nearPD(matrix.a, corr=TRUE, do2eigen=FALSE)
+```
+
+
+```{r}
+data.b <- c(1,0,0,0,1,0,0,0,1)
+
+(matrix.b <- matrix(data.b, nrow = 3, ncol = 3, byrow = TRUE))
+
+nearPD(matrix.b, corr=TRUE, do2eigen=FALSE)
+```
+
+
+```{r}
+data.c <- c(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1)
+
+(matrix.c <- matrix(data.c, nrow = 4, ncol = 4, byrow = TRUE))
+
+nearPD(matrix.c, corr=TRUE, do2eigen=FALSE)
+```
+
+
+## Minimally Correlated
+
+```{r}
+data.d <- c(1,0.2,0.2,1)
+
+(matrix.d <- matrix(data.d, nrow = 2, ncol = 2, byrow = TRUE))
+
+nearPD(matrix.d, corr=TRUE, do2eigen=FALSE)
+```
+
+
+```{r}
+data.e <- c(1,0.2,0.15,0.2,1,0.1,0.15,0.1,1)
+
+(matrix.e <- matrix(data.e, nrow = 3, ncol = 3, byrow = TRUE))
+
+nearPD(matrix.e, corr=TRUE, do2eigen=FALSE)
+```
+
+
+```{r}
+data.f <- c(1,0.2,0.15,0.1,0.2,1,0.1,0.15,0.15,0.1,1,0.2,0.1,0.15,0.2,1)
+
+(matrix.f <- matrix(data.f, nrow = 4, ncol = 4, byrow = TRUE))
+
+nearPD(matrix.f, corr=TRUE, do2eigen=FALSE)
+```
+
+## Moderately Correlated
+
+```{r}
+data.g <- c(1,0.5,0.5,1)
+
+(matrix.g <- matrix(data.g, nrow = 2, ncol = 2, byrow = TRUE))
+
+nearPD(matrix.g, corr=TRUE, do2eigen=FALSE)
+```
+
+
+```{r}
+data.h <- c(1,0.5,0.55,0.5,1,0.4,0.55,0.4,1)
+
+(matrix.h <- matrix(data.h, nrow = 3, ncol = 3, byrow = TRUE))
+
+nearPD(matrix.h, corr=TRUE, do2eigen=FALSE)
+```
+
+
+```{r}
+data.i <- c(1,0.5,0.55,0.4,0.5,1,0.4,0.55,0.55,0.4,1,0.5,0.4,0.55,0.5,1)
+
+(matrix.i <- matrix(data.i, nrow = 4, ncol = 4, byrow = TRUE))
+  
+nearPD(matrix.i, corr=TRUE, do2eigen=FALSE)
+```
+
+
+## Bring together correlation matrices
+
+```{r}
+cor_conditions = list(un_1 = matrix(1),
+                      un_2 = matrix.a,
+                      un_3 = matrix.b,
+                      un_4 = matrix.c,
+                      minimal_2 = matrix.d,
+                      minimal_3 = matrix.e,
+                      minimal_4 = matrix.f,
+                      moderate_2 = matrix.g,
+                      moderate_3 = matrix.h,
+                      moderate_4 = matrix.i)
+                      
+```
+
+## Save
+```{r}
+save(cor_conditions, loading_conditions, file = "condition_matrices.Rdata")
+```
+
+
+

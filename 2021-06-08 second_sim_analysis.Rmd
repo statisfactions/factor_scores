@@ -1,0 +1,139 @@
+---
+title: "Initial simulation explorations"
+author: "Ethan C. Brown"
+date: "6/8/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(knitr)
+library(glue)
+library(psych)
+load("2021-06-08 second_sim_results.Rdata")
+
+options(knitr.kable.NA = "")
+
+# gen_unnest = gen %>% 
+#   
+#   unnest(cols = "sim_cell")
+
+samp_loadings = read.delim("loadings_2.txt", sep = "\t", header = FALSE) %>% 
+  set_names(paste0("pop_factor", 1:3))
+samp_cors = read.delim("cors_2.txt", sep = "\t", header = FALSE) %>% 
+  set_names(paste0("factor", 1:3))
+rownames(samp_cors) = paste0("factor", 1:3)
+
+factor_cutoff = 0.2
+num_items = nrow(samp_loadings)
+```
+
+## Methods
+### Population
+
+Population loadings:
+```{r loadings}
+samp_loadings %>% kable
+```
+Factor correlations:
+
+```{r samp_cors}
+samp_cors %>% kable
+```
+Possible factor score variability, as measured by item-level reliability: 
+
+```{r rs}
+gen %>% 
+  pull(r) %>% unique %>% sort
+```
+
+Ratio of sample size to # items: 
+
+```{r n_multiplier}
+(unique_n_multiplier = gen %>% pull(n_multiplier) %>% unique %>% sort)
+```
+
+Possible numbers of items:
+```{r num_items}
+num_items
+```
+
+Possible sample sizes
+```{r sample_sizes}
+num_items * unique_n_multiplier
+```
+
+Error SD: 1
+
+Number of item categories: 4
+
+Thresholds: -2.26, 0, 2.26
+
+(Thresholds chosen so that all conditions are "unimodal" such that center two categories are at least 10% more than tail categories in all item-level reliability conditions.)
+
+### Simulation parameters
+Number of simulations per condition:
+```{r}
+gen %>% pull(rep) %>% max
+```
+
+
+### Estimation
+Number of factors determined by parallel analysis using polychoric correlation matrix.
+
+Estimator is WLSMV, geomin oblique rotation.
+
+Estimated factors matched to population factors by max congruence coefficient.
+
+Items determined to load on factor if loading > 0.2.
+
+## Results
+### Convergence
+
+Frequency of errors encountered:
+
+```{r gen_is_err}
+gen_is_err = gen %>% 
+  rowwise() %>% 
+  mutate(class = paste(class(sim_cell), collapse = " "),
+         is_error = str_starts(class, "simpleError"),
+         error_text = ifelse(is_error, as.character(sim_cell), "No error"),)
+
+gen_is_err$error_text %>% table
+
+```
+Probably should use `start = FALSE` in `semTools::efaUnrotate` and skip rotation when parallel analysis only finds one factor. For now, will treat the errors about rotation as a single-factor extraction and the `start = FALSE` errors as true convergence errors.  Need to look more into the "missing value" error.
+
+```{r convergence}
+gen_is_err %>% 
+  mutate(converged = !is_error | str_detect(error_text, "GPArotation")) %>% 
+  group_by(r, n_multiplier) %>% 
+  summarize(convergence = mean(converged), .groups = "drop") %>% 
+  arrange(n_multiplier, r) %>% 
+  kable
+```
+
+
+### Number of factors
+Proportion of each number of factors extracted:
+```{r nfactor}
+rep_nfactor = gen_is_err %>% 
+  mutate(nfactor = ifelse(is_error, 
+                          ifelse(str_detect(error_text, "GPArotation"), 1, NA),
+                          sum(str_starts(sim_cell$variable, "factor"))))
+
+rep_nfactor %>%
+  filter(!is.na(nfactor)) %>% 
+  count(r, n_multiplier, nfactor) %>% 
+  group_by(r, n_multiplier) %>% 
+  mutate(proportion = n/sum(n)) %>% 
+  select(-n) %>% 
+  pivot_wider(names_from = nfactor,
+              values_from = proportion) %>% 
+  arrange(n_multiplier, r) %>% 
+  kable
+
+```
+
