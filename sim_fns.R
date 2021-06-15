@@ -1,3 +1,31 @@
+get_sd_latent = function(r) sqrt(1 / (1-r))
+get_sd_total = function(r) sqrt(get_sd_latent(r)^2 +1)
+
+names(latent_sds) = rs
+
+marg_fun = function(x) {
+  matrix(rep(seq(-abs(x), abs(x), length.out = 3), 12), ncol = 3, byrow = TRUE) 
+}
+
+marg_fun_pop = function(r, x) {
+  x = abs(x)
+  sd_t = get_sd_total(r)
+  c0 = pnorm(-x, mean = 0, sd = sd_t, lower.tail = TRUE)
+  
+  data.frame(c0 = c0, 
+             c1 = 0.5 - c0,
+             c2 = 0.5 - c0,
+             c3 = c0)
+}
+
+## We want the max-reliability condition to have
+## at least 10% (or another %) in the center
+## This means the quantile we want is .495/2 = 0.2479
+test_candidate = qnorm(0.2475, mean = 0, get_sd_total(.9))
+
+g = marg_fun_pop(.9, test_candidate)
+
+
 list_w_names = function(...) {
   dots_names <- sapply(substitute(list(...))[-1], deparse)
   
