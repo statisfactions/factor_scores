@@ -181,7 +181,7 @@ reproduce <-
     
     
     ## Generate all replications
-    x[[colname]] = x %>% select(-sim_cell) %>% 
+    x[[colname]] = x %>% select(-matches("^sim_cell$")) %>% 
       furrr::future_pmap(., fn, variables = attr(x, "variables_spec"), reproduce = TRUE,
                          .options = furrr::future_options(globals = globals,
                                                           packages = packages),
@@ -237,6 +237,8 @@ future_produce2 <-
                                                           packages = packages),
                          .progress = TRUE)
     
+    sim_results = unnest_wider(sim_results, col = sim_cell)
+    
     ## Add some attributes to the tibble to track meta and variables
     attr(sim_results, "meta") = names(x$meta$indices)
     attr(sim_results, "variables") = purrr::map(x$variables, ~ attr(., "varnames")) %>% unlist
@@ -245,7 +247,8 @@ future_produce2 <-
     ## Add "simpr_gen" class
     class(sim_results) = c("simpr_gen", class(sim_results))
     
-    sim_results %>% unnest_wider(col = sim_cell)
+    return(sim_results)
+    
   }
 
 
@@ -253,6 +256,8 @@ get_nfact = function(variables, ...) {
   gen = genify(variables, ...)
   
   capture.output(nfact <- psych::fa.parallel(gen, cor = "poly", plot = FALSE, sim = FALSE, correct = 0.1)$nfact, file = "/dev/null")
+  
+  return(nfact)
 }
 
 fit_and_tidy = function(variables, ...) {
@@ -301,6 +306,65 @@ fit_and_tidy = function(variables, ...) {
     
     capture.output(nfact <- psych::fa.parallel(gen, cor = "poly", plot = FALSE, sim = FALSE, correct = 0.1)$nfact, file = "NUL")
     
+    fa_fit <- gen %>%
+      fa_wlsmv(nfact)
+    
+    if(nfact == 1) {
+      return(lavaan::parameterEstimates(fa_fit, standardized = TRUE))
+    } else {
+      fa_out <- tibble::as_tibble(fa_fit@loading, rownames = "variable") %>% 
+        dplyr::bind_rows(tibble::as_tibble(fa_fit@phi, rownames = "variable"))
+      
+      return(fa_out)
+    }
+  })
+}
+
+fit_and_tidy_efa_only = function(variables, ..., reproduce = TRUE) {
+  ## For the power simulation, generate the data,
+  ## fit the model (same for ES and MF), and tidy
+  ## the results, extracting just the fixed
+  ## effects (all we will use is the p.value for z.edyrscap.mean
+  
+  
+  
+  catchToList <- function(expr) {
+    ## https://stackoverflow.com/questions/4948361/how-do-i-save-warnings-and-errors-as-output-from-a-function
+    val <- NULL
+    myWarnings <- NULL
+    wHandler <- function(w) {
+      myWarnings <<- c(myWarnings, w$message)
+      invokeRestart("muffleWarning")
+    }
+    myError <- NULL
+    eHandler <- function(e) {
+      myError <<- e$message
+      NULL
+    }
+    val <- tryCatch(withCallingHandlers(expr, warning = wHandler), error = eHandler)
+    return_list = list(value = val, warnings = myWarnings, error=myError)
+    return(return_list)
+  } 
+  
+  fa_wlsmv = function(x, nf) {
+    x = dplyr::mutate(x, across(everything(), ordered, levels = 0:3))
+    
+    unrotated = semTools::efaUnrotate(x, nf = nf, varList = names(x), estimator = "wlsmv")
+    if(nf == 1)
+      return(unrotated)
+    else {
+      rotated = semTools::oblqRotate(unrotated, method = "geomin")
+      return(rotated)
+    }
+  }
+  
+  gen = genify(variables, ..., reproduce = reproduce)
+  
+  ## Get number of factors
+  nfact = list(...)$n_factors
+ 
+  print(summary(gen))
+  catchToList({
     fa_fit <- gen %>%
       fa_wlsmv(nfact)
     
