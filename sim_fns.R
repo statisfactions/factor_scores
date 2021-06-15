@@ -291,12 +291,16 @@ fit_and_tidy = function(variables, ...) {
     capture.output(nfact <- psych::fa.parallel(gen, cor = "poly", plot = FALSE, sim = FALSE, correct = 0.1)$nfact, file = "NUL")
     
     fa_fit <- gen %>%
-    fa_wlsmv(nfact)
-  
-  fa_out <- tibble::as_tibble(fa_fit@loading, rownames = "variable") %>% 
-    dplyr::bind_rows(tibble::as_tibble(fa_fit@phi, rownames = "variable"))
-  
-  return(fa_out)
+      fa_wlsmv(nfact)
+    
+    if(nfact == 1) {
+      return(lavaan::parameterEstimates(fa_fit, standardized = TRUE))
+    } else {
+      fa_out <- tibble::as_tibble(fa_fit@loading, rownames = "variable") %>% 
+        dplyr::bind_rows(tibble::as_tibble(fa_fit@phi, rownames = "variable"))
+      
+      return(fa_out)
+    }
   })
 }
 
