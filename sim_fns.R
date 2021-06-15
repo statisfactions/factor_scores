@@ -274,7 +274,7 @@ fit_and_tidy = function(variables, ...) {
     x = dplyr::mutate(x, across(everything(), ordered, levels = 0:3))
     
     unrotated = semTools::efaUnrotate(x, nf = nf, varList = names(x), estimator = "wlsmv")
-    if(nf = 1)
+    if(nf == 1)
       return(unrotated)
     else {
       rotated = semTools::oblqRotate(unrotated, method = "geomin")
