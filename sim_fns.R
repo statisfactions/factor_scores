@@ -267,7 +267,6 @@ fit_and_tidy = function(variables, ...) {
     }
     val <- tryCatch(withCallingHandlers(expr, warning = wHandler), error = eHandler)
     return_list = list(value = val, warnings = myWarnings, error=myError)
-    attr(return_list, "seed") = attr(gen, "seed")
     return(return_list)
   } 
   
@@ -283,16 +282,10 @@ fit_and_tidy = function(variables, ...) {
   gen = genify(variables, ...)
   
   ## Get number of factors
-  pop_num_fact = 3
   
   catchToList({
     
     capture.output(nfact <- psych::fa.parallel(gen, cor = "poly", plot = FALSE, sim = FALSE, correct = 0.1)$nfact, file = "NUL")
-    
-    ## Don't bother fitting model if wrong number of factors
-    if(nfact != 3) {
-      return(seed)
-    }
     
     fa_fit <- gen %>%
     fa_wlsmv(nfact)
