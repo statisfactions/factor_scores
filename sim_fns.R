@@ -1,10 +1,31 @@
+load("condition_matrices.Rdata")
+
+loading_con_df = tibble(loading = names(loading_conditions)) %>% 
+  mutate(nfactors = str_extract(loading, pattern = "[0-9]+$"))
+
+
+cor_con_df = tibble(cor = names(cor_conditions)) %>% 
+  mutate(nfactors = str_extract(cor, pattern = "[0-9]+$"))
+
+all_cond_df = inner_join(loading_con_df, cor_con_df, by = "nfactors") %>% 
+  mutate(condition_name = paste(nfactors, loading, cor) %>% str_remove_all("_[0-9]+"))
+
+condition_df = all_cond_df %>% 
+  group_by(condition_name) %>% 
+  summarize(cond = list(list(loading = loading_conditions[[loading]], cor = cor_conditions[[cor]])),
+            .groups = "drop")
+
+condition_lists = condition_df$cond
+names(condition_lists) = condition_df$condition_name
+
+
 get_sd_latent = function(r) sqrt(1 / (1-r))
 get_sd_total = function(r) sqrt(get_sd_latent(r)^2 +1)
 
-names(latent_sds) = rs
+rs = c(.1, .3, .5, .7, .9)
 
-marg_fun = function(x) {
-  matrix(rep(seq(-abs(x), abs(x), length.out = 3), 12), ncol = 3, byrow = TRUE) 
+marg_fun = function(x, num_items) {
+  matrix(rep(seq(-abs(x), abs(x), length.out = 3), num_items), ncol = 3, byrow = TRUE) 
 }
 
 marg_fun_pop = function(r, x) {
@@ -18,6 +39,15 @@ marg_fun_pop = function(r, x) {
              c3 = c0)
 }
 
+get_loadings = function(master, cond, num_items, master_items_per_factor = 5) {
+  ## Get the population loadings given a master
+  ## condition list of matrices
+  ## (loading_conditions), the condition
+  ## (character vector), the number of items
+  ## (numeric), and the number of items per factor
+  ## in the master condition list (numeric, default 5)
+  do.call(rbind, rep(list(master[[cond]]$loading), round(num_items/master_items_per_factor)))
+}
 ## We want the max-reliability condition to have
 ## at least 10% (or another %) in the center
 ## This means the quantile we want is .495/2 = 0.2479
@@ -48,15 +78,13 @@ seed_factory = function(f) {
   list(sim_cell = res, seed = starting_seed)
   }
 }
-  
-  
 
-
-mes <- function(fmodel,effect, marginals, numberofcases=1000, sd_latent = 1, sd_error = 1) {   # define a general function in terms of a factor model and an effects matrix
+mes <- function(fmodel,effect, marginals, n_multiplier, sd_latent = 1, sd_error = 1) {   # define a general function in terms of a factor model and an effects matrix
   ## Function altered from http://personality-project.org/r/r.datageneration.html
   numberofvariables <- dim(fmodel)[1]        #problem size determined by input to the function
   numberoflatent <- dim(fmodel)[2]
   numberofcategories = ncol(marginals)
+  numberofcases = n_multiplier * numberofvariables
   tmodel <- t(fmodel)      #transpose of model
   # fmodel  %*% tmodel        #show the resulting  measurement structure
   
