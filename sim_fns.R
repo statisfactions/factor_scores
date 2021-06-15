@@ -363,7 +363,6 @@ fit_and_tidy_efa_only = function(variables, ..., reproduce = TRUE) {
   ## Get number of factors
   nfact = list(...)$n_factors
  
-  print(summary(gen))
   catchToList({
     fa_fit <- gen %>%
       fa_wlsmv(nfact)
