@@ -306,15 +306,11 @@ fit_and_tidy = function(variables, ...) {
     
     fa_fit <- gen %>%
       fa_wlsmv(nfact)
-    
-    if(nfact == 1) {
-      return(lavaan::parameterEstimates(fa_fit, standardized = TRUE))
-    } else {
+  
       fa_out <- tibble::as_tibble(fa_fit@loading, rownames = "variable") %>% 
         dplyr::bind_rows(tibble::as_tibble(fa_fit@phi, rownames = "variable"))
       
       return(fa_out)
-    }
   })
 }
 
@@ -336,14 +332,10 @@ fit_and_tidy_efa_only = function(variables, ..., reproduce = TRUE) {
     fa_fit <- gen %>%
       fa_wlsmv(nfact)
     
-    if(nfact == 1) {
-      return(lavaan::parameterEstimates(fa_fit, standardized = TRUE))
-    } else {
       fa_out <- tibble::as_tibble(fa_fit@loading, rownames = "variable") %>% 
         dplyr::bind_rows(tibble::as_tibble(fa_fit@phi, rownames = "variable"))
       
       return(fa_out)
-    }
   })
 }
 
