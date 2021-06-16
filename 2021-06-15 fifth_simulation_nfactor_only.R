@@ -23,11 +23,11 @@ spec_1 = blueprint(x = ~ mes(get_loadings(condition_lists, factor_condition, num
   
 
 ## Do simulation -----
-set.seed(2132132)
 options(mc.cores = parallel::detectCores())
-runtime = Sys.time() %>% str_replace_all(":", "_")
-for(k in 1:10) {
-	cat(k, "\n")
+
+for(k in 1:50) {
+  runtime = Sys.time() %>% str_replace_all(":", "_")
+	cat("------\n",k, "\n")
 for(i in all_rs) {
   cat(i, "\n")
   for(j in conditions) {
@@ -44,6 +44,9 @@ for(i in all_rs) {
     saveRDS(gen, file = glue("nfactor_results/{runtime} {i} {j} {k}.RDS"))
   }
 }
+  system("git add nfactor_results/*")
+  system(glue("git commit -m '{runtime} repetition {k}'"))
+  system("git push -u origin main")
 }
 # 441 for 1
 

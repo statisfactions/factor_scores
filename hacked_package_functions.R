@@ -336,9 +336,9 @@ fa.parallel_fixed <-
     class(results) <- c("psych","parallel")
     return(invisible(results))
   }
-
-assignInNamespace("fa.parallel", fa.parallel_fixed, pos = "package:psych")
-
+if (("package:psych" %in% search())) {
+  assignInNamespace("fa.parallel", fa.parallel_fixed, pos = "package:psych")
+}
 ## semTools -----
 ### Sunthud Pornprasertmanit & Terrence D. Jorgensen
 ### Last updated: 27 May 2020
@@ -502,6 +502,7 @@ oblqRotate_hacked <- function(object, method = "quartimin", ...) {
       call = mc))
   }
 }
-
-assignInNamespace("efaUnrotate", efaUnrotate_hacked, pos = "package:semTools")
-assignInNamespace("oblqRotate", oblqRotate_hacked, pos = "package:semTools")
+if (("package:semTools" %in% search())) {
+  assignInNamespace("efaUnrotate", efaUnrotate_hacked, pos = "package:semTools")
+  assignInNamespace("oblqRotate", oblqRotate_hacked, pos = "package:semTools")
+}
